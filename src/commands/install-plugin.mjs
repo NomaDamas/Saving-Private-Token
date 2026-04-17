@@ -1,24 +1,15 @@
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readlinkSync,
-  rmSync,
-  symlinkSync,
-} from 'node:fs';
+import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
-import { homedir } from 'node:os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const MARKETPLACE_ID = 'savingprivatetoken-local';
-const PLUGIN_ID = 'savingprivatetoken';
+const MARKETPLACE_NAME = 'savingprivatetoken';
+const PLUGIN_REF = 'savingprivatetoken@savingprivatetoken';
 
 export function packageRoot() {
-  // src/commands/install-plugin.mjs -> ../../
   return resolve(__dirname, '..', '..');
 }
 
@@ -26,59 +17,85 @@ export function pluginSourceDir() {
   return join(packageRoot(), 'plugin');
 }
 
-export function pluginTargetRoot() {
-  const base = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
-  return join(base, 'plugins', 'cache', MARKETPLACE_ID, PLUGIN_ID);
+function claudeAvailable() {
+  const r = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['claude'], {
+    encoding: 'utf8',
+  });
+  return r.status === 0;
 }
 
-function pluginTargetVersionedDir(version) {
-  return join(pluginTargetRoot(), version);
+function runClaude(args) {
+  return spawnSync('claude', args, { encoding: 'utf8' });
 }
 
-function readPkgVersion() {
-  try {
-    return JSON.parse(readFileSync(join(packageRoot(), 'package.json'), 'utf8')).version || '0.0.0';
-  } catch {
-    return '0.0.0';
-  }
+function marketplaceAlreadyRegistered() {
+  const r = runClaude(['plugin', 'marketplace', 'list']);
+  if (r.status !== 0) return false;
+  const out = `${r.stdout}\n${r.stderr}`;
+  return new RegExp(`^\\s*❯?\\s*${MARKETPLACE_NAME}\\b`, 'm').test(out);
 }
 
-function safeLstat(p) {
-  try {
-    return lstatSync(p);
-  } catch {
-    return null;
-  }
+function pluginAlreadyInstalled() {
+  const r = runClaude(['plugin', 'list']);
+  if (r.status !== 0) return false;
+  const out = `${r.stdout}\n${r.stderr}`;
+  return new RegExp(`\\b${MARKETPLACE_NAME}@${MARKETPLACE_NAME}\\b`, 'm').test(out);
 }
 
 export async function installPluginCommand() {
   const src = pluginSourceDir();
   if (!existsSync(src)) throw new Error(`plugin source not found at ${src}`);
+  if (!claudeAvailable()) {
+    throw new Error(
+      '`claude` CLI not found on PATH. Install Claude Code first, then rerun `spt install-plugin`.',
+    );
+  }
 
-  const version = readPkgVersion();
-  const target = pluginTargetVersionedDir(version);
-  mkdirSync(dirname(target), { recursive: true });
+  const root = packageRoot();
 
-  const st = safeLstat(target);
-  if (st && st.isSymbolicLink()) {
-    const cur = readlinkSync(target);
-    const resolved = resolve(dirname(target), cur);
-    if (resolved === src) {
-      process.stdout.write(`already linked: ${target} -> ${src}\n`);
-      return;
+  if (marketplaceAlreadyRegistered()) {
+    process.stdout.write(`marketplace already registered: ${MARKETPLACE_NAME}\n`);
+  } else {
+    const add = spawnSync('claude', ['plugin', 'marketplace', 'add', root, '--scope', 'user'], {
+      stdio: 'inherit',
+    });
+    if (add.status !== 0) {
+      throw new Error(`claude plugin marketplace add failed (exit ${add.status})`);
     }
   }
-  if (st) rmSync(target, { recursive: true, force: true });
-  symlinkSync(src, target, 'dir');
-  process.stdout.write(`linked: ${target} -> ${src}\n`);
+
+  if (pluginAlreadyInstalled()) {
+    process.stdout.write(`plugin already installed: ${PLUGIN_REF}\n`);
+    return;
+  }
+
+  const inst = spawnSync('claude', ['plugin', 'install', PLUGIN_REF, '--scope', 'user'], {
+    stdio: 'inherit',
+  });
+  if (inst.status !== 0) {
+    throw new Error(`claude plugin install failed (exit ${inst.status})`);
+  }
+  process.stdout.write(
+    '\nRestart any running Claude Code sessions for the plugin hooks to load.\n',
+  );
 }
 
 export async function uninstallPluginCommand() {
-  const root = pluginTargetRoot();
-  if (!existsSync(root)) {
-    process.stdout.write('no plugin symlink found\n');
-    return;
+  if (!claudeAvailable()) {
+    throw new Error('`claude` CLI not found on PATH.');
   }
-  rmSync(root, { recursive: true, force: true });
-  process.stdout.write(`removed ${root}\n`);
+  if (pluginAlreadyInstalled()) {
+    spawnSync('claude', ['plugin', 'uninstall', PLUGIN_REF], { stdio: 'inherit' });
+  } else {
+    process.stdout.write(`plugin not installed: ${PLUGIN_REF}\n`);
+  }
+  if (marketplaceAlreadyRegistered()) {
+    spawnSync('claude', ['plugin', 'marketplace', 'remove', MARKETPLACE_NAME], {
+      stdio: 'inherit',
+    });
+  } else {
+    process.stdout.write(`marketplace not registered: ${MARKETPLACE_NAME}\n`);
+  }
 }
+
+export { MARKETPLACE_NAME, PLUGIN_REF };

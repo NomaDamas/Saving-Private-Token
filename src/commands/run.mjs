@@ -65,12 +65,18 @@ export async function runCommand(_argv) {
   const shortId = randomBytes(3).toString('hex');
   const sessionName = `spt-${shortId}`;
 
-  // Build an env-prefixed command so claude inside the new tmux session sees SPT_ENABLED=1.
-  // `tmux new-session` inherits the invoking env, but we pass explicit -e for clarity.
-  const args = ['new-session', '-s', sessionName, '-e', 'SPT_ENABLED=1', claudeBin];
-  // Setup status-line once the session exists. We'll set it via a post-create option push after attach.
-  // Simpler: use `new-session -d` then set options then attach.
-  spawnSync('tmux', ['new-session', '-d', '-s', sessionName, '-e', 'SPT_ENABLED=1', claudeBin], {
+  // Forward SPT_* and CLAUDE_CONFIG_DIR explicitly. A pre-existing tmux server
+  // uses its own captured env, not the client's, so -e is the only reliable
+  // way to get these into the new session.
+  const forwardArgs = ['-e', 'SPT_ENABLED=1'];
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v == null) continue;
+    if (k === 'SPT_ENABLED') continue;
+    if (k.startsWith('SPT_') || k === 'CLAUDE_CONFIG_DIR') {
+      forwardArgs.push('-e', `${k}=${v}`);
+    }
+  }
+  spawnSync('tmux', ['new-session', '-d', '-s', sessionName, ...forwardArgs, claudeBin], {
     stdio: 'inherit',
     env,
   });
