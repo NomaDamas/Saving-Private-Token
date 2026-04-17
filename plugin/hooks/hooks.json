@@ -1,0 +1,26 @@
+{
+  "description": "Cache keepalive via tmux send-keys",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-session-start.sh" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-stop.sh", "async": true }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-user-prompt.sh" }
+        ]
+      }
+    ]
+  }
+}

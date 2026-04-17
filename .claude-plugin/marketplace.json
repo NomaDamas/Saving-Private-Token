@@ -1,0 +1,15 @@
+{
+  "name": "savingprivatetoken",
+  "owner": { "name": "vkehfdl1" },
+  "metadata": {
+    "description": "Keep Claude Code prompt cache warm via tmux-driven idle pings",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "savingprivatetoken",
+      "source": "./plugin",
+      "description": "Cache keepalive for Claude Code running inside tmux"
+    }
+  ]
+}

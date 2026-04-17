@@ -1,0 +1,37 @@
+{
+  "name": "savingprivatetoken",
+  "version": "0.1.0",
+  "description": "Keep Claude Code prompt cache warm via tmux-driven idle pings",
+  "type": "module",
+  "bin": {
+    "spt": "./bin/spt.js",
+    "savingprivatetoken": "./bin/spt.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "plugin",
+    ".claude-plugin",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vkehfdl1/SavingPrivateToken.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "prompt-cache",
+    "tmux",
+    "anthropic"
+  ]
+}

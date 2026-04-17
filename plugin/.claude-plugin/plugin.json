@@ -1,0 +1,10 @@
+{
+  "name": "savingprivatetoken",
+  "version": "0.1.0",
+  "description": "Keep Claude Code prompt cache warm via tmux-driven idle pings",
+  "author": { "name": "vkehfdl1" },
+  "homepage": "https://github.com/vkehfdl1/SavingPrivateToken",
+  "repository": "https://github.com/vkehfdl1/SavingPrivateToken",
+  "license": "MIT",
+  "keywords": ["claude-code", "tmux", "prompt-cache"]
+}
